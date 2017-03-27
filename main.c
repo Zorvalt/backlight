@@ -2,11 +2,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <zconf.h>
 
 #define CURRENT_BRIGHTNESS_FILE "/sys/class/backlight/intel_backlight/brightness"
 #define MAX_BRIGHTNESS_FILE "/sys/class/backlight/intel_backlight/max_brightness"
 #define BUFFER_SIZE 10
-#define NB_STEP 10
+#define NB_STEP 20
 
 char buffer[BUFFER_SIZE];
 
@@ -27,8 +28,8 @@ int maxBrightness() {
     }
 }
 
-void printUsage(char* exeName) {
-    printf("Usage : %s {++ or --}\n", exeName);
+void printUsage() {
+    printf("Usage : backlight_mod {++ or --}\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -41,35 +42,39 @@ int main(int argc, char* argv[]) {
         printUsage(argv[0]);
         exit(EXIT_SUCCESS);
     } else {
-        if(strncmp(argv[1], "++", 3) == 0) {
+        if(strncmp(argv[1], "++", 2) == 0) {
             increment = true;
         }
-        else if(strncmp(argv[1], "--", 3) == 0) {
+        else if(strncmp(argv[1], "--", 2) == 0) {
             increment = false;
         }
         else {
-            printUsage(argv[0]);
+            printUsage();
             exit(EXIT_SUCCESS);
         }
 
         if(argc == 3) {
-            if(strncmp(argv[2], "-v", 3) == 0) {
+            if(strncmp(argv[2], "-v", 2) == 0) {
                 verbose = true;
             } else {
                 printUsage(argv[0]);
                 exit(EXIT_SUCCESS);
             }
         }
-
     }
+    
+	if(seteuid(0)) {
+		perror("Unable to use seteuid(0): ");
+		exit(EXIT_FAILURE);
+	}
 
 	memset(buffer, '\0', BUFFER_SIZE);
 
     max_brightness = maxBrightness();
-    if (max_brightness < 0) {
+    if (max_brightness < 1) {
         exit(EXIT_FAILURE);
     }
-    step_brightness = max_brightness / NB_STEP;
+
 
     current_brightness_file = fopen(CURRENT_BRIGHTNESS_FILE, "a+");
     if(current_brightness_file == NULL) {
@@ -86,6 +91,8 @@ int main(int argc, char* argv[]) {
         fclose(current_brightness_file);
         exit(EXIT_FAILURE);
     }
+    
+    step_brightness = current_brightness * NB_STEP / 100 + 1;
 
     if(increment) {
         new_brightness = current_brightness + step_brightness;
@@ -95,14 +102,14 @@ int main(int argc, char* argv[]) {
 
     if(new_brightness > max_brightness) {
         new_brightness = max_brightness;
-    } else if (new_brightness < step_brightness) {
-        new_brightness = step_brightness;
+    } else if (new_brightness <= 0) {
+        new_brightness = 1;
     }
     memset(buffer, '\0', BUFFER_SIZE);
     sprintf(buffer, "%d", new_brightness);
 
     nb_bytes = fwrite(buffer, strlen(buffer), 1, current_brightness_file);
-    if(nb_bytes < 0) {
+    if(nb_bytes == 0) {
         perror("Cannot write brightness file: ");
         fclose(current_brightness_file);
         exit(EXIT_FAILURE);
