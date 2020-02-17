@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include <zconf.h>
+#include <unistd.h>
 
 #define CURRENT_BRIGHTNESS_FILE "/sys/class/backlight/intel_backlight/brightness"
 #define MAX_BRIGHTNESS_FILE "/sys/class/backlight/intel_backlight/max_brightness"
